@@ -1,10 +1,10 @@
-name: push
+name: Push
 
 on:
   push:
     branches: [ master ]
-#  pull_request:
-#    branches: [ master ]
+  #pull_request:
+  #  branches: [ master ]
 
 env:
   # Path to the solution file relative to the root of the project.
@@ -16,7 +16,7 @@ env:
   BUILD_CONFIGURATION: Release
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -41,40 +41,75 @@ jobs:
     - name: UploadBinaries
       uses: actions/upload-artifact@v3
       with:
-        name: my-artifact
-        path: x64\Release\
-        if-no-files-found: error
+          name: my-artifact
+          path: x64\Release\ # or path/to/artifact
+          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn`
+      
 
-  lint: 
-  
+  lint:
     runs-on: windows-latest
-    
+
     steps:
-      - name: RunLint
-        working-directory: ${{env.GITHUB_WORKSPACE}}
-        run: echo LINT
-        
-  test: 
-    
+    - uses: actions/checkout@v3
+
+    - name: RunLint
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: echo LINTING
+
+  test:
     needs: [build, lint]
     runs-on: windows-latest
     
-    steps: 
-    - name: UploadBinaries
-      uses: actions/upload-artifact@v3
+    steps:
+    
+    - name: Setup VSTest.exe
+      uses: Malcolmnixon/Setup-VSTest@v4
+      
+    - name: DownloadBinaries
+      uses: actions/download-artifact@v3
       with:
         name: my-artifact
-        path: x64\Release\
-        if-no-files-found: error
-        
-        
-    - name: Setup VSTest.exe 
-      uses: Malcolmnixon/Setup-VSTest@v4 
-
-
-    - name: RunTests 
-      working-directory: ${{env.GITHUB_WORKSPACE}} 
-      run: VSTest.Console.exe  Debug\UnitTest1.dll 
-
-
+        path: x64\Release
+    
+    - name: RunTests
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: VSTest.Console.exe  x64\Release\UnitTest1.dll
+      
+  SaveBinary:
+    needs: [test]
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: DownloadBinaries
+      uses: actions/download-artifact@v3
+      with:
+        name: my-artifact
+        path: x64\Release
+    
+    - name: stage
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: copy  x64\Release\PipeplinesExe.exe .
+      
+    - name: addEmail
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: git config --global user.email "olekaspt@mail.uc.edu"
+      
+    - name: addName
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: git config --global user.name "Patrick Olelas"
+      
+    - name: add
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: git add PipeplinesExe.exe 
+          
+    - name: commit
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: git commit -m "generated"
+      
+    - name: push
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: git push      
+      
       
